@@ -21,8 +21,13 @@ Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
 
 Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
 
-Write-Host "Extracting ReBeta..."
-Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+Write-Host "Extracting ReBeta using tar.exe (stable extractor)..."
+
+# Create extract folder
+New-Item -ItemType Directory -Path $tempExtract | Out-Null
+
+# Use tar.exe instead of Expand-Archive
+tar -xf $tempZip -C $tempExtract
 
 # === AUTO-DETECT INSTANCE ROOT ===
 # Find the folder that contains instance.cfg (the true instance root)
