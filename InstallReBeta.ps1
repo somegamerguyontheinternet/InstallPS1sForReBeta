@@ -21,41 +21,32 @@ Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
 
 Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
 
-Write-Host "Extracting ReBeta using tar.exe (stable extractor)..."
+Write-Host "Extracting ReBeta..."
+Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
 
-# Create extract folder
-New-Item -ItemType Directory -Path $tempExtract | Out-Null
+# Find the FIRST folder inside the extracted ZIP
+$rootFolder = Get-ChildItem $tempExtract | Where-Object { $_.PSIsContainer } | Select-Object -First 1
 
-# Use tar.exe instead of Expand-Archive
-tar -xf $tempZip -C $tempExtract
-
-# === AUTO-DETECT INSTANCE ROOT ===
-# Find the folder that contains instance.cfg (the true instance root)
-$instanceCfg = Get-ChildItem -Recurse -Filter "instance.cfg" -Path $tempExtract | Select-Object -First 1
-
-if ($null -eq $instanceCfg) {
-    Write-Host "ERROR: Could not locate instance.cfg inside the downloaded ZIP."
-    Write-Host "The ReBeta instance may be packaged incorrectly."
+if ($null -eq $rootFolder) {
+    Write-Host "ERROR: Could not find extracted instance folder."
     exit
 }
 
-$sourceFolder = Split-Path $instanceCfg.FullName -Parent
-
-Write-Host "Detected instance folder:"
-Write-Host "  $sourceFolder"
-
-# === PREPARE ReBeta INSTANCE FOLDER ===
-if (!(Test-Path $rebetaInstancePath)) {
-    New-Item -ItemType Directory -Path $rebetaInstancePath | Out-Null
+# If the ZIP contains a nested folder, use that instead
+$innerFolder = Get-ChildItem $rootFolder.FullName | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+if ($innerFolder -ne $null) {
+    $sourceFolder = $innerFolder.FullName
 } else {
-    # Clean existing contents
-    Remove-Item (Join-Path $rebetaInstancePath "*") -Recurse -Force -ErrorAction SilentlyContinue
+    $sourceFolder = $rootFolder.FullName
 }
 
-Write-Host "Installing ReBeta instance into:"
+Write-Host "Source folder detected:"
+Write-Host "  $sourceFolder"
+
+Write-Host "Installing into:"
 Write-Host "  $rebetaInstancePath"
 
-# === COPY INSTANCE FILES ===
+# Windows will auto-create the folder if needed
 Copy-Item -Path (Join-Path $sourceFolder "*") -Destination $rebetaInstancePath -Recurse -Force
 
 Write-Host "ReBeta installed successfully!"
