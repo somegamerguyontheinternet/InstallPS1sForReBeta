@@ -1,6 +1,7 @@
 Write-Host "Checking Prism Launcher installation..."
 
 $prismInstances = "$env:APPDATA\PrismLauncher\instances"
+$rebetaInstancePath = Join-Path $prismInstances "ReBeta"
 
 if (!(Test-Path $prismInstances)) {
     Write-Host "ERROR: Prism Launcher is not installed."
@@ -22,16 +23,35 @@ Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
 Write-Host "Extracting ReBeta..."
 Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
 
-$instanceFolder = Get-ChildItem $tempExtract | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+# Find the extracted root folder (e.g. ReBeta-Instance-main)
+$rootFolder = Get-ChildItem $tempExtract | Where-Object { $_.PSIsContainer } | Select-Object -First 1
 
-if ($null -eq $instanceFolder) {
+if ($null -eq $rootFolder) {
     Write-Host "ERROR: Could not find extracted instance folder."
     exit
 }
 
-Write-Host "Installing ReBeta instance..."
+# If your repo has ReBeta-Instance-main\ReBeta-Instance-main, handle that:
+$innerFolder = Get-ChildItem $rootFolder.FullName | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+if ($innerFolder -ne $null) {
+    $sourceFolder = $innerFolder.FullName
+} else {
+    $sourceFolder = $rootFolder.FullName
+}
 
-Copy-Item -Path "$($instanceFolder.FullName)\*" -Destination $prismInstances -Recurse -Force
+Write-Host "Preparing ReBeta instance folder..."
+
+if (!(Test-Path $rebetaInstancePath)) {
+    New-Item -ItemType Directory -Path $rebetaInstancePath | Out-Null
+} else {
+    # Optional: clean existing contents
+    Remove-Item (Join-Path $rebetaInstancePath "*") -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "Installing ReBeta instance into:"
+Write-Host "  $rebetaInstancePath"
+
+Copy-Item -Path (Join-Path $sourceFolder "*") -Destination $rebetaInstancePath -Recurse -Force
 
 Write-Host "ReBeta installed successfully!"
 Write-Host "You may now close this window."
